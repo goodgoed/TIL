@@ -1,10 +1,11 @@
 import os
+import re
 import sys
 
 from playwright.sync_api import sync_playwright
 
 
-def create_project_structure(project_name):
+def create_project_structure(language, project_name):
     # Create the main directory
     project_dir = os.path.join(os.getcwd(), project_name)
     if not os.path.exists(project_dir):
@@ -15,29 +16,58 @@ def create_project_structure(project_name):
     if not os.path.exists(tests_dir):
         os.makedirs(tests_dir)
 
-        # Create the 'main.py' file with a multiline string
-    main_file = os.path.join(project_dir, "main.py")
-    if not os.path.exists(main_file):
-        with open(main_file, "w") as f:
-            f.write(
-                """\
+    if language.lower() == 'python':
+        # Create the 'main.py' file for Python
+        main_file = os.path.join(project_dir, "main.py")
+        if not os.path.exists(main_file):
+            with open(main_file, "w") as f:
+                f.write("""\
 def solution():
     pass
 
-solution()
-"""
-            )
+if __name__ == "__main__":
+    solution()
+""")
+
+    elif language.lower() == 'java':
+        # Create the 'Main.java' file for Java
+        main_file = os.path.join(project_dir, "Main.java")
+        if not os.path.exists(main_file):
+            with open(main_file, "w") as f:
+                f.write("""\
+public class Main {
+    public static void main(String[] args) {
+        // Your solution here
+    }
+}
+""")
 
     return tests_dir
 
 
-# FIXME: only works in headless=False
 def scrape_problem_samples(problem_number, tests_dir):
     url = f"https://www.acmicpc.net/problem/{problem_number}"
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
-        page = browser.new_page()
+        browser = p.chromium.launch(headless=True)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.182 Safari/537.36",
+            'sec-ch-ua': 'Not A(Brand";v="8", "Chromium";v="132", "Google Chrome";v="132"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"macOS"',
+            'sec-fetch-dest': 'document',
+            'sec-fetch-mode': 'navigate',
+            'sec-fetch-site': 'same-origin',
+            'sec-fetch-user': '?1',
+            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'accept-encoding': 'gzip, deflate, br, zstd'
+        }
+        context = browser.new_context(
+            extra_http_headers = headers,
+            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.182 Safari/537.36',
+            java_script_enabled=False
+        )
+        page = context.new_page()
         page.goto(url)
 
         index = 1
@@ -81,13 +111,14 @@ def scrape_problem_samples(problem_number, tests_dir):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python prep.py <problem_number>")
+    if len(sys.argv) < 3:
+        print("Usage: python prep.py <language> <problem_number>")
+        print("Example: python prep.py python 1")
         sys.exit(1)
 
-    problem_number = sys.argv[1]
-    project_name = problem_number
-    tests_dir = create_project_structure(project_name)
+    language = sys.argv[1]
+    problem_number = sys.argv[2]
+    tests_dir = create_project_structure(language, problem_number)
 
     # Scrape the sample inputs/outputs
     scrape_problem_samples(problem_number, tests_dir)
